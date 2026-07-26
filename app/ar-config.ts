@@ -13,10 +13,16 @@ export const AR_CONFIG = {
     height: 0.5625,
     positionX: 0,
     positionY: 0,
-    positionZ: 0,
+    positionZ: 0.01,
   },
   tracking: {
-    lostDelayMs: 400,
+    // Lower beta smooths pose jitter. A longer miss tolerance prevents brief
+    // glare or motion blur from immediately dropping the target.
+    filterMinCF: 0.0005,
+    filterBeta: 0.01,
+    warmupTolerance: 7,
+    missTolerance: 12,
+    lostDelayMs: 250,
     restartFromBeginning: true,
   },
 } as const;

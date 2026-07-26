@@ -4,7 +4,7 @@ import "./globals.css";
 const siteUrl =
   process.env.CF_PAGES_URL ??
   process.env.NEXT_PUBLIC_SITE_URL ??
-  "https://emoli-ar-moment.pages.dev";
+  "https://emoli-ar-movie.pages.dev";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

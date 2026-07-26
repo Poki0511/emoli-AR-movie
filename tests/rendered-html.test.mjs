@@ -4,15 +4,16 @@ import test from "node:test";
 
 const output = (path) => new URL(`../out/${path}`, import.meta.url);
 
-test("exports the AR start guide as the static root page", async () => {
+test("exports the camera-first AR screen as the static root page", async () => {
   const html = await readFile(output("index.html"), "utf8");
 
   assert.match(html, /<title>EMOLI AR MOMENT/);
-  assert.match(html, /その一枚が、/);
-  assert.match(html, /動き出す。/);
-  assert.match(html, /カメラを起動する/);
-  assert.match(html, /カメラ映像は保存・送信されません/);
-  assert.match(html, /https:\/\/emoli-ar-moment\.pages\.dev\/og\.png/);
+  assert.match(html, /カメラを起動中/);
+  assert.match(html, /カメラの使用を許可してください/);
+  assert.doesNotMatch(html, /A PHOTO COMES ALIVE/);
+  assert.doesNotMatch(html, /カメラを起動する/);
+  assert.doesNotMatch(html, /scan-guide/);
+  assert.match(html, /https:\/\/emoli-ar-movie\.pages\.dev\/og\.png/);
   assert.doesNotMatch(html, /cyberagent\.chatgpt\.site|codex-preview/);
 });
 
@@ -32,9 +33,12 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
 
   assert.match(config, /targetFile:\s*"\/assets\/target\.mind"/);
   assert.match(config, /videoFile:\s*"\/assets\/movie\.mp4"/);
-  assert.match(config, /lostDelayMs:\s*400/);
+  assert.match(config, /filterBeta:\s*0\.01/);
+  assert.match(config, /missTolerance:\s*12/);
+  assert.match(config, /lostDelayMs:\s*250/);
   assert.match(component, /window\.isSecureContext/);
-  assert.match(component, /カメラの使用を許可してください/);
+  assert.match(component, /const startTimer = window\.setTimeout/);
+  assert.match(component, /void startCamera\(\);/);
   assert.match(component, /await mindar\.start\(\)/);
   assert.match(packageJson, /"build:pages":\s*"next build"/);
   assert.match(headers, /Permissions-Policy:\s*camera=\(self\)/);

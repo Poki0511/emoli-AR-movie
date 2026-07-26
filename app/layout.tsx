@@ -1,39 +1,34 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import "./globals.css";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host?.startsWith("localhost") ? "http" : "https");
-  const origin = host ? `${protocol}://${host}` : "http://localhost:3000";
-  const socialImage = new URL("/og.png", origin).toString();
+const siteUrl =
+  process.env.CF_PAGES_URL ??
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://emoli-ar-moment.pages.dev";
 
-  return {
-    title: "EMOLI AR MOMENT｜その一枚が、動き出す。",
-    description:
-      "チェキ風カードにスマートフォンをかざすと、写真が動画として動き出すWebAR体験。",
-    icons: {
-      icon: "/favicon.png",
-      shortcut: "/favicon.png",
-    },
-    openGraph: {
-      title: "EMOLI AR MOMENT",
-      description: "その一枚が、動き出す。スマートフォンで楽しむWebAR体験。",
-      images: [{ url: socialImage, width: 1733, height: 909 }],
-      locale: "ja_JP",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: "EMOLI AR MOMENT",
-      description: "その一枚が、動き出す。スマートフォンで楽しむWebAR体験。",
-      images: [socialImage],
-    },
-  };
-}
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: "EMOLI AR MOMENT｜その一枚が、動き出す。",
+  description:
+    "チェキ風カードにスマートフォンをかざすと、写真が動画として動き出すWebAR体験。",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+  },
+  openGraph: {
+    title: "EMOLI AR MOMENT",
+    description: "その一枚が、動き出す。スマートフォンで楽しむWebAR体験。",
+    images: [{ url: "/og.png", width: 1733, height: 909 }],
+    locale: "ja_JP",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EMOLI AR MOMENT",
+    description: "その一枚が、動き出す。スマートフォンで楽しむWebAR体験。",
+    images: ["/og.png"],
+  },
+};
 
 export default function RootLayout({
   children,

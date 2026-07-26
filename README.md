@@ -25,9 +25,21 @@
 - `?debug=true` による開発情報表示
 - カメラ映像を保存・送信しない端末内処理
 
+## 公開先について（重要）
+
+一般利用者へ配布するQRコードには、Cloudflare Pagesで公開した次の形式のURLを使用します。
+
+```text
+https://＜Cloudflare Pagesのプロジェクト名＞.pages.dev/
+```
+
+`https://〜.cyberagent.chatgpt.site` など、ChatGPTやCodexが発行したプレビューURLはQRコードに使用しないでください。プレビューURLはChatGPTへのログインを求める場合があり、一般利用者向けの公開URLではありません。
+
+このプロジェクトの `/` は、QRコードから直接開くAR開始案内画面です。別のトップページを経由しません。「カメラを起動する」を押すまではカメラを使用せず、ボタンを押した後にブラウザがカメラの許可を求めます。許可後はそのまま画像認識画面へ移動します。
+
 ## 必要な環境
 
-- Node.js 22.13以上
+- Node.js 22（`.node-version` では22.16.0を指定）
 - pnpm
 - 開発確認: 比較的新しいChrome、Edgeなど
 - 本番利用: 比較的新しいiPhone Safari / Android Chrome
@@ -155,13 +167,113 @@ https://example.com/?debug=true
 
 カメラ、MindAR、ターゲット、動画の状態とブラウザ情報がカメラ画面に表示されます。通常アクセスでは表示されません。
 
-## 本番ビルド
+## Cloudflare Pages用の静的ビルド
 
 ```bash
-pnpm build
+pnpm install --frozen-lockfile
+pnpm run build:pages
 ```
 
-ビルド成果物はCloudflare Workers互換の構成で出力されます。公開先は必ずHTTPSに対応したサービスを使用してください。
+ビルドコマンドは `pnpm run build:pages`、出力ディレクトリは `out` です。`out/index.html` とARに必要な動画・認識データ・ランタイムが生成されます。サーバープログラムやデータベースを必要としない静的サイトなので、Cloudflare Pagesからそのまま配信できます。
+
+ローカルでビルド結果を確認する場合は次を実行します。
+
+```bash
+pnpm run preview
+```
+
+`out` は自動生成物のためGitHubへアップロードする必要はありません。Cloudflare PagesがGitHub上のソースコードから毎回生成します。
+
+## GitHubへアップロードする
+
+### 1. GitHubで空のリポジトリを作る
+
+1. GitHubへログインします。
+2. 「New repository」を押します。
+3. リポジトリ名を入力します。例: `emoli-ar-moment`
+4. 公開範囲を選びます。Cloudflare PagesはPrivateリポジトリにも接続できます。
+5. README、`.gitignore`、Licenseは追加せず、空の状態で作成します。
+
+### 2. このフォルダをGitHubへ送る
+
+GitHubが表示するリポジトリURLに置き換えて、プロジェクトのルートで実行します。
+
+```bash
+git branch -M main
+git remote add origin https://github.com/＜GitHubユーザー名＞/＜リポジトリ名＞.git
+git push -u origin main
+```
+
+すでに `origin` という接続先を設定している場合は、`git remote add origin` の代わりに次を使います。
+
+```bash
+git remote set-url origin https://github.com/＜GitHubユーザー名＞/＜リポジトリ名＞.git
+```
+
+## Cloudflare Pagesへ公開する
+
+### 1. GitHubリポジトリを接続する
+
+1. [Cloudflare Dashboard](https://dash.cloudflare.com/)へログインします。
+2. 左側の「Workers & Pages」を開きます。
+3. 「Create application」を押します。
+4. 「Pages」→「Connect to Git」を選びます。
+5. GitHubを連携し、先ほど作成したリポジトリを選択します。
+6. 「Begin setup」を押します。
+
+### 2. ビルド設定を入力する
+
+Cloudflare Pagesの設定値は次のとおりです。
+
+| 設定項目 | 入力値 |
+| --- | --- |
+| Production branch | `main` |
+| Framework preset | `Next.js (Static HTML Export)` |
+| Build command | `pnpm run build:pages` |
+| Build output directory | `out` |
+| Root directory | 空欄（GitHubリポジトリのルート） |
+
+環境変数は必須ではありません。Node.jsのバージョンは、リポジトリ直下の `.node-version` により22.16.0が使用されます。
+
+### 3. 公開する
+
+1. 「Save and Deploy」を押します。
+2. ビルドが完了して「Success」と表示されるまで待ちます。
+3. 次の形式で発行されたURLを開きます。
+
+```text
+https://＜Cloudflare Pagesのプロジェクト名＞.pages.dev/
+```
+
+Cloudflare Pagesの `pages.dev` URLはHTTPSです。カメラAPIはHTTPS環境でのみ利用できるため、スマートフォン向けQRコードには必ずこのURL、またはCloudflare Pagesに設定した独自ドメインのHTTPS URLを使用します。
+
+### 4. QRコードへ設定する
+
+QRコードには、発行された本番URLのルートをそのまま設定します。
+
+```text
+https://＜Cloudflare Pagesのプロジェクト名＞.pages.dev/
+```
+
+末尾の `/` 以外に特別なパスは不要です。QRコードから開くと、直接「カメラを起動する」ボタンのあるAR開始案内画面が表示されます。
+
+次のURLはQRコードに使用しません。
+
+- ChatGPTまたはCodexのプレビューURL
+- `localhost` のURL
+- PCのローカルIPアドレスを使ったHTTP URL
+- Cloudflare Pagesのビルド途中にだけ表示される管理画面URL
+
+### 5. ログインなしで実機確認する
+
+1. ChatGPT、Codex、Cloudflareからログアウトした状態、またはSafari／Chromeのプライベートブラウズで `pages.dev` URLを開きます。
+2. AR開始案内画面が表示されることを確認します。
+3. 「カメラを起動する」を押します。
+4. ブラウザのカメラ確認で「許可」を選びます。
+5. 画像認識画面へ移動し、背面カメラの映像が表示されることを確認します。
+6. `target.jpg` と同じ印刷物または別画面を映し、動画が重なることを確認します。
+
+Cloudflare Pages側にアクセス制限やCloudflare Accessを追加すると、一般利用者にもログイン画面が表示されます。この用途ではアクセス制限を追加せず、一般公開のまま使用してください。
 
 ## iPhoneで確認する
 

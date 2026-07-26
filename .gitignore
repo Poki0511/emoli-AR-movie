@@ -42,3 +42,6 @@ next-env.d.ts
 *.tsbuildinfo
 /outputs/
 /work/
+
+# Cloudflare Pages / static export
+.dev.vars*

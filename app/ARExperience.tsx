@@ -184,7 +184,7 @@ export function ARExperience() {
   const startCamera = async () => {
     setScreen("camera");
     setTracking("preparing");
-    setMessage("カメラを準備しています");
+    setMessage("カメラの使用を許可してください");
     setErrorMessage("");
 
     if (!window.isSecureContext && window.location.hostname !== "localhost") {
@@ -205,6 +205,11 @@ export function ARExperience() {
     }
 
     try {
+      // Wait until React has mounted the camera container before MindAR uses it.
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+
       const container = arContainerRef.current;
       if (!container) throw new Error("カメラ画面を初期化できませんでした");
 

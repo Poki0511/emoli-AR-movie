@@ -7,14 +7,14 @@ const output = (path) => new URL(`../out/${path}`, import.meta.url);
 test("exports the camera-first AR screen as the static root page", async () => {
   const html = await readFile(output("index.html"), "utf8");
 
-  assert.match(html, /<title>EMOLI AR MOMENT/);
+  assert.match(html, /<title>EMOLI AR/);
   assert.match(html, /カメラを起動中/);
   assert.match(html, /カメラの使用を許可してください/);
   assert.doesNotMatch(html, /A PHOTO COMES ALIVE/);
   assert.doesNotMatch(html, /カメラを起動する/);
   assert.doesNotMatch(html, /scan-guide/);
-  assert.match(html, /https:\/\/emoli-ar-movie\.pages\.dev\/og\.png/);
-  assert.doesNotMatch(html, /cyberagent\.chatgpt\.site|codex-preview/);
+  assert.doesNotMatch(html, /og:image|twitter:card|og\.png/);
+  assert.match(html, /noindex/);
 });
 
 test("ships all AR assets and Cloudflare Pages control files", async () => {

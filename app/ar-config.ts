@@ -10,7 +10,9 @@ export const AR_CONFIG = {
   },
   overlay: {
     width: 1,
-    height: 0.5625,
+    // The new card and movie are both portrait (roughly 1080 x 1456), so the
+    // video plane follows that aspect ratio instead of the previous 16:9 one.
+    height: 1.3481,
     positionX: 0,
     positionY: 0,
     positionZ: 0.01,

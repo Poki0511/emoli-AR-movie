@@ -103,6 +103,7 @@ export function ARExperience() {
   const targetVisibleRef = useRef(false);
   const startingRef = useRef(false);
   const lostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeFrameRef = useRef<number | null>(null);
   const videoMaterialRef = useRef<VideoMaterial | null>(null);
   const disposablesRef = useRef<Disposable[]>([]);
@@ -111,6 +112,13 @@ export function ARExperience() {
     if (lostTimerRef.current) {
       clearTimeout(lostTimerRef.current);
       lostTimerRef.current = null;
+    }
+  }, []);
+
+  const clearPlayRetry = useCallback(() => {
+    if (playRetryTimerRef.current) {
+      clearTimeout(playRetryTimerRef.current);
+      playRetryTimerRef.current = null;
     }
   }, []);
 
@@ -144,6 +152,7 @@ export function ARExperience() {
 
   const stopAR = useCallback(() => {
     clearLostTimer();
+    clearPlayRetry();
     cancelFade();
     targetVisibleRef.current = false;
 
@@ -172,29 +181,50 @@ export function ARExperience() {
     disposablesRef.current.forEach((item) => item.dispose());
     disposablesRef.current = [];
     arContainerRef.current?.replaceChildren();
-  }, [cancelFade, clearLostTimer]);
+  }, [cancelFade, clearLostTimer, clearPlayRetry]);
 
   const playFromBeginning = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
+    clearPlayRetry();
     cancelFade();
     if (videoMaterialRef.current) videoMaterialRef.current.opacity = 1;
-    if (AR_CONFIG.tracking.restartFromBeginning) video.currentTime = 0;
     video.muted = AR_CONFIG.video.muted;
-    try {
-      await video.play();
-    } catch {
-      // If target recognition wins the race against media buffering, retry as
-      // soon as the file is playable without asking the visitor to tap.
-      video.addEventListener(
-        "canplay",
-        () => {
-          if (targetVisibleRef.current) void video.play().catch(() => {});
-        },
-        { once: true },
-      );
+    if (AR_CONFIG.tracking.restartFromBeginning) {
+      try {
+        video.currentTime = 0;
+      } catch {
+        // Metadata may not be available on the first recognition frame.
+      }
     }
-  }, [cancelFade]);
+
+    const attemptPlay = async (attempt: number) => {
+      if (videoRef.current !== video || !targetVisibleRef.current) return;
+
+      if (video.readyState < 2) {
+        if (attempt < 60) {
+          playRetryTimerRef.current = setTimeout(
+            () => void attemptPlay(attempt + 1),
+            250,
+          );
+        }
+        return;
+      }
+
+      try {
+        await video.play();
+      } catch {
+        if (attempt < 60 && targetVisibleRef.current) {
+          playRetryTimerRef.current = setTimeout(
+            () => void attemptPlay(attempt + 1),
+            250,
+          );
+        }
+      }
+    };
+
+    await attemptPlay(0);
+  }, [cancelFade, clearPlayRetry]);
 
   const startCamera = useCallback(async () => {
     if (startingRef.current) return;
@@ -294,6 +324,7 @@ export function ARExperience() {
       };
       anchor.onTargetLost = () => {
         targetVisibleRef.current = false;
+        clearPlayRetry();
         setTracking("lost");
         clearLostTimer();
         lostTimerRef.current = setTimeout(() => {
@@ -334,7 +365,7 @@ export function ARExperience() {
     } finally {
       startingRef.current = false;
     }
-  }, [cancelFade, clearLostTimer, fadeOutVideo, playFromBeginning, stopAR]);
+  }, [cancelFade, clearLostTimer, clearPlayRetry, fadeOutVideo, playFromBeginning, stopAR]);
 
   useEffect(() => {
     const onVisibilityChange = () => {

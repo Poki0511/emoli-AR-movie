@@ -18,10 +18,11 @@ test("exports the camera-first AR screen as the static root page", async () => {
 });
 
 test("ships all AR assets and Cloudflare Pages control files", async () => {
-  const [config, component, packageJson, headers, redirects, target, mind, movie, runtime] =
+  const [config, component, styles, packageJson, headers, redirects, target, mind, movie, runtime] =
     await Promise.all([
       readFile(new URL("../app/ar-config.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/ARExperience.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(output("_headers"), "utf8"),
       readFile(output("_redirects"), "utf8"),
@@ -36,7 +37,7 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.match(config, /muted:\s*true/);
   assert.match(config, /loop:\s*false/);
   assert.match(config, /fadeOutMs:\s*1000/);
-  assert.match(config, /filterBeta:\s*1/);
+  assert.match(config, /filterBeta:\s*10/);
   assert.match(config, /missTolerance:\s*12/);
   assert.match(config, /lostDelayMs:\s*250/);
   assert.match(component, /window\.isSecureContext/);
@@ -46,6 +47,10 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.doesNotMatch(component, /video\.autoplay = true/);
   assert.match(component, /container\.appendChild\(video\)/);
   assert.match(component, /video\.className = "texture-video"/);
+  assert.match(component, /video\.readyState < 2/);
+  assert.match(component, /attempt < 60/);
+  assert.match(styles, /\.texture-video/);
+  assert.doesNotMatch(styles, /clip-path:\s*inset/);
   assert.doesNotMatch(component, /className="sound-control"/);
   assert.doesNotMatch(component, /タップして再生/);
   assert.match(component, /className={`ar-container\$\{cameraReady/);

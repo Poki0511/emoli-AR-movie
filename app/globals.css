@@ -70,10 +70,9 @@ button {
 .ar-container > .texture-video {
   position: absolute !important;
   inset: auto 0 0 auto !important;
-  z-index: -3 !important;
+  z-index: 2 !important;
   width: 1px !important;
   height: 1px !important;
-  clip-path: inset(100%);
   opacity: 0.001;
   pointer-events: none;
 }

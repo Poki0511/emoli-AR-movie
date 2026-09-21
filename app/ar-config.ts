@@ -5,8 +5,9 @@ export const AR_CONFIG = {
   runtimeFile: "/runtime/mindar-runtime.iife.js",
   video: {
     muted: false,
-    loop: true,
+    loop: false,
     playsInline: true,
+    fadeOutMs: 1000,
   },
   overlay: {
     width: 1,

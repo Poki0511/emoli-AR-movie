@@ -34,6 +34,8 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.match(config, /targetFile:\s*"\/assets\/target\.mind\?v=[^"]+"/);
   assert.match(config, /videoFile:\s*"\/assets\/movie\.mp4\?v=[^"]+"/);
   assert.match(config, /muted:\s*false/);
+  assert.match(config, /loop:\s*false/);
+  assert.match(config, /fadeOutMs:\s*1000/);
   assert.match(config, /filterBeta:\s*100/);
   assert.match(config, /missTolerance:\s*12/);
   assert.match(config, /lostDelayMs:\s*250/);
@@ -45,6 +47,8 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.doesNotMatch(component, /container\.appendChild\(video\)/);
   assert.doesNotMatch(component, /className="sound-control"/);
   assert.match(component, /タップして再生/);
+  assert.match(component, /video\.onended = fadeOutVideo/);
+  assert.match(component, /material\.opacity = 1 - progress/);
   assert.match(packageJson, /"build:pages":\s*"next build"/);
   assert.match(headers, /Permissions-Policy:\s*camera=\(self\)/);
   assert.match(headers, /Cache-Control:\s*public, max-age=0, must-revalidate/);

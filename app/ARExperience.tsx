@@ -7,6 +7,7 @@ type Screen = "camera" | "error";
 type TrackingState = "preparing" | "searching" | "found" | "lost" | "error";
 
 type Disposable = { dispose: () => void };
+type VideoMaterial = Disposable & { opacity: number };
 type Anchor = {
   group: { add: (object: unknown) => void };
   onTargetFound: (() => void) | null;
@@ -28,7 +29,7 @@ type ThreeRuntime = {
     colorSpace: unknown;
   };
   PlaneGeometry: new (width: number, height: number) => Disposable;
-  MeshBasicMaterial: new (options: Record<string, unknown>) => Disposable;
+  MeshBasicMaterial: new (options: Record<string, unknown>) => VideoMaterial;
   Mesh: new (
     geometry: Disposable,
     material: Disposable,
@@ -101,6 +102,8 @@ export function ARExperience() {
   const targetVisibleRef = useRef(false);
   const startingRef = useRef(false);
   const lostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeFrameRef = useRef<number | null>(null);
+  const videoMaterialRef = useRef<VideoMaterial | null>(null);
   const disposablesRef = useRef<Disposable[]>([]);
 
   const clearLostTimer = useCallback(() => {
@@ -110,18 +113,49 @@ export function ARExperience() {
     }
   }, []);
 
+  const cancelFade = useCallback(() => {
+    if (fadeFrameRef.current !== null) {
+      window.cancelAnimationFrame(fadeFrameRef.current);
+      fadeFrameRef.current = null;
+    }
+  }, []);
+
+  const fadeOutVideo = useCallback(() => {
+    const material = videoMaterialRef.current;
+    if (!material) return;
+
+    cancelFade();
+    const startedAt = performance.now();
+    const fade = (now: number) => {
+      const progress = Math.min(
+        (now - startedAt) / AR_CONFIG.video.fadeOutMs,
+        1,
+      );
+      material.opacity = 1 - progress;
+      if (progress < 1) {
+        fadeFrameRef.current = window.requestAnimationFrame(fade);
+      } else {
+        fadeFrameRef.current = null;
+      }
+    };
+    fadeFrameRef.current = window.requestAnimationFrame(fade);
+  }, [cancelFade]);
+
   const stopAR = useCallback(() => {
     clearLostTimer();
+    cancelFade();
     targetVisibleRef.current = false;
 
     const video = videoRef.current;
     if (video) {
+      video.onended = null;
       video.pause();
       video.currentTime = 0;
       video.removeAttribute("src");
       video.load();
     }
     videoRef.current = null;
+    videoMaterialRef.current = null;
 
     const mindar = mindarRef.current;
     if (mindar) {
@@ -137,11 +171,13 @@ export function ARExperience() {
     disposablesRef.current.forEach((item) => item.dispose());
     disposablesRef.current = [];
     arContainerRef.current?.replaceChildren();
-  }, [clearLostTimer]);
+  }, [cancelFade, clearLostTimer]);
 
   const playFromBeginning = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
+    cancelFade();
+    if (videoMaterialRef.current) videoMaterialRef.current.opacity = 1;
     if (AR_CONFIG.tracking.restartFromBeginning) video.currentTime = 0;
     video.muted = AR_CONFIG.video.muted;
     try {
@@ -152,7 +188,7 @@ export function ARExperience() {
       // Keep sound enabled and ask for that gesture instead of silently muting.
       setSoundHint(true);
     }
-  }, []);
+  }, [cancelFade]);
 
   const startCamera = useCallback(async () => {
     if (startingRef.current) return;
@@ -209,6 +245,7 @@ export function ARExperience() {
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
       video.controls = false;
+      video.onended = fadeOutVideo;
       video.load();
       videoRef.current = video;
 
@@ -222,7 +259,10 @@ export function ARExperience() {
         map: texture,
         side: runtime.THREE.DoubleSide,
         toneMapped: false,
+        transparent: true,
+        opacity: 1,
       });
+      videoMaterialRef.current = material;
       const plane = new runtime.THREE.Mesh(geometry, material);
       plane.position.set(
         AR_CONFIG.overlay.positionX,
@@ -246,8 +286,12 @@ export function ARExperience() {
         lostTimerRef.current = setTimeout(() => {
           const currentVideo = videoRef.current;
           if (!targetVisibleRef.current && currentVideo) {
+            cancelFade();
             currentVideo.pause();
             currentVideo.currentTime = 0;
+            if (videoMaterialRef.current) {
+              videoMaterialRef.current.opacity = 1;
+            }
             setSoundHint(false);
             setTracking("searching");
           }
@@ -267,7 +311,7 @@ export function ARExperience() {
     } finally {
       startingRef.current = false;
     }
-  }, [clearLostTimer, playFromBeginning, stopAR]);
+  }, [cancelFade, clearLostTimer, fadeOutVideo, playFromBeginning, stopAR]);
 
   useEffect(() => {
     const onVisibilityChange = () => {

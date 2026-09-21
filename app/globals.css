@@ -130,7 +130,6 @@ button {
   font-size: 10px;
 }
 
-.sound-control,
 .sound-hint,
 .retry-button {
   border: 1px solid rgb(255 255 255 / 18%);
@@ -142,24 +141,15 @@ button {
   backdrop-filter: blur(10px);
 }
 
-.sound-control {
-  position: absolute;
-  z-index: 6;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(92px, calc(env(safe-area-inset-bottom) + 84px));
-  min-height: 40px;
-  padding: 0 13px;
-  font-size: 10px;
-}
-
 .sound-hint {
   position: absolute;
   z-index: 7;
   right: 50%;
-  bottom: max(138px, calc(env(safe-area-inset-bottom) + 130px));
-  min-height: 42px;
-  padding: 0 16px;
-  font-size: 11px;
+  bottom: max(116px, calc(env(safe-area-inset-bottom) + 108px));
+  min-height: 48px;
+  padding: 0 22px;
+  background: rgb(0 0 0 / 72%);
+  font-size: 13px;
   transform: translateX(50%);
 }
 
@@ -233,10 +223,6 @@ button:focus-visible {
     right: 86px;
     bottom: max(16px, calc(env(safe-area-inset-bottom) + 12px));
     left: 86px;
-  }
-
-  .sound-control {
-    bottom: max(16px, calc(env(safe-area-inset-bottom) + 12px));
   }
 }
 

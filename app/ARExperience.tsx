@@ -91,7 +91,6 @@ export function ARExperience() {
   const [screen, setScreen] = useState<Screen>("camera");
   const [tracking, setTracking] = useState<TrackingState>("preparing");
   const [errorMessage, setErrorMessage] = useState("");
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const [soundHint, setSoundHint] = useState(false);
   const [debugEnabled, setDebugEnabled] = useState(false);
   const [userAgent, setUserAgent] = useState("");
@@ -100,7 +99,6 @@ export function ARExperience() {
   const mindarRef = useRef<MindARInstance | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const targetVisibleRef = useRef(false);
-  const soundEnabledRef = useRef(false);
   const startingRef = useRef(false);
   const lostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disposablesRef = useRef<Disposable[]>([]);
@@ -145,14 +143,14 @@ export function ARExperience() {
     const video = videoRef.current;
     if (!video) return;
     if (AR_CONFIG.tracking.restartFromBeginning) video.currentTime = 0;
-    video.muted = !soundEnabledRef.current;
+    video.muted = AR_CONFIG.video.muted;
     try {
       await video.play();
       setSoundHint(false);
     } catch {
-      video.muted = true;
-      setSoundHint(soundEnabledRef.current);
-      await video.play().catch(() => {});
+      // Mobile browsers normally require one page tap before playing audio.
+      // Keep sound enabled and ask for that gesture instead of silently muting.
+      setSoundHint(true);
     }
   }, []);
 
@@ -205,26 +203,13 @@ export function ARExperience() {
       video.src = AR_CONFIG.videoFile;
       video.poster = AR_CONFIG.posterFile;
       video.preload = "auto";
-      video.autoplay = true;
       video.loop = AR_CONFIG.video.loop;
       video.muted = AR_CONFIG.video.muted;
-      video.defaultMuted = AR_CONFIG.video.muted;
       video.playsInline = AR_CONFIG.video.playsInline;
-      video.setAttribute("autoplay", "");
-      video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
-      Object.assign(video.style, {
-        position: "absolute",
-        inset: "0 auto auto 0",
-        width: "1px",
-        height: "1px",
-        opacity: "0.001",
-        pointerEvents: "none",
-      });
-      // iOS Safari advances video textures more reliably when the source
-      // video remains attached to the document instead of living off-DOM.
-      container.appendChild(video);
+      video.controls = false;
+      video.load();
       videoRef.current = video;
 
       const texture = new runtime.THREE.VideoTexture(video);
@@ -263,6 +248,7 @@ export function ARExperience() {
           if (!targetVisibleRef.current && currentVideo) {
             currentVideo.pause();
             currentVideo.currentTime = 0;
+            setSoundHint(false);
             setTracking("searching");
           }
         }, AR_CONFIG.tracking.lostDelayMs);
@@ -306,25 +292,6 @@ export function ARExperience() {
       stopAR();
     };
   }, [startCamera, stopAR]);
-
-  const toggleSound = async () => {
-    const next = !soundEnabled;
-    setSoundEnabled(next);
-    soundEnabledRef.current = next;
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = !next;
-    if (next && targetVisibleRef.current) {
-      try {
-        await video.play();
-        setSoundHint(false);
-      } catch {
-        setSoundHint(true);
-      }
-    } else {
-      setSoundHint(false);
-    }
-  };
 
   if (screen === "error") {
     return (
@@ -373,17 +340,9 @@ export function ARExperience() {
         )}
       </section>
 
-      <button
-        className="sound-control"
-        onClick={toggleSound}
-        aria-label={soundEnabled ? "音声をオフにする" : "音声をオンにする"}
-      >
-        {soundEnabled ? "音声 ON" : "音声 OFF"}
-      </button>
-
       {soundHint && (
         <button className="sound-hint" onClick={playFromBeginning}>
-          タップして音声を再生
+          タップして再生
         </button>
       )}
 

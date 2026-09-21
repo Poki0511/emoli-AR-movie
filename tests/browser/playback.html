@@ -1,0 +1,82 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AR media regression test (local only)</title>
+<style>
+body { font: 14px system-ui; background: #141414; color: #eee; margin: 20px; }
+.pair { display: flex; gap: 16px; } video, canvas { width: 230px; height: 310px; }
+pre { white-space: pre-wrap; } button { padding: 12px; margin-right: 8px; }
+</style>
+<h1>Real MP4 + Three.js playback regression</h1>
+<p>No camera is used. Initial playback is requested automatically, without a click.</p>
+<div class="pair"><video id="source" muted playsinline preload="auto"></video><div id="webgl"></div></div>
+<p><button id="retry">Retry from gesture</button><button id="run">Run automatic cycle again</button></p>
+<pre id="results">Loading runtime…</pre>
+<pre id="errors"></pre>
+<script>window.addEventListener('error', e => { document.querySelector('#errors').textContent += `${e.message}\n${e.error?.stack}\n`; }); window.addEventListener('unhandledrejection', e => { document.querySelector('#errors').textContent += `${e.reason?.stack ?? e.reason}\n`; });</script>
+<script src="../../public/runtime/mindar-runtime.iife.js"></script>
+<script type="module">
+import { ARPlayback } from '../../app/ar-playback.mjs';
+const { THREE } = window.MindARRuntime;
+const video = document.querySelector('#source');
+video.muted = video.defaultMuted = true;
+video.src = '../../public/assets/movie.mp4';
+const renderer = new THREE.WebGLRenderer({ alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(230, 310);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.querySelector('#webgl').append(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-0.5, 0.5, 0.67405, -0.67405, 0.01, 10);
+camera.position.z = 1;
+const texture = new THREE.VideoTexture(video);
+texture.colorSpace = THREE.SRGBColorSpace;
+const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0, toneMapped: false });
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1.3481), material));
+const log = [];
+let fadeStart = null, frameCount = 0, lastTime = -1, maxTime = 0;
+let cycle = 0, run = 0, blankPixels = 0, coloredPixels = 0;
+const playback = new ARPlayback(video, {
+  onState: state => log.push(`${performance.now().toFixed(0)} ${state}`),
+  onReset: () => { fadeStart = null; material.opacity = 0; },
+  onFrame: () => { material.opacity = 1; },
+  onEnded: () => { cycle++; fadeStart = performance.now(); },
+});
+renderer.setAnimationLoop(() => {
+  if (video.readyState >= 2 && lastTime !== video.currentTime) {
+    texture.needsUpdate = true; lastTime = video.currentTime; frameCount++;
+  }
+  maxTime = Math.max(maxTime, video.currentTime);
+  if (fadeStart !== null) material.opacity = Math.max(0, 1 - (performance.now() - fadeStart) / 1000);
+  renderer.render(scene, camera);
+});
+setInterval(() => {
+  // Read back only in this test, never in the production AR render loop.
+  const gl = renderer.getContext(); const pixel = new Uint8Array(4);
+  gl.readPixels(115, 155, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  if (material.opacity > 0.9 && pixel[0] + pixel[1] + pixel[2] > 0) coloredPixels++;
+  if (material.opacity === 0 && pixel[3] === 0) blankPixels++;
+  document.querySelector('#results').textContent = JSON.stringify({ ...playback.snapshot(), cycle, frameCount, maxTime, opacity: material.opacity, coloredPixels, blankPixels, log }, null, 2);
+}, 100);
+document.querySelector('#retry').onclick = () => playback.retryFromGesture();
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function automaticCycle() {
+  const id = ++run;
+  playback.targetLost(); await sleep(300);
+  playback.targetFound();
+  await sleep(1600); if (id !== run) return;
+  const before = video.currentTime;
+  playback.targetLost(); await sleep(100); playback.targetFound();
+  log.push(`short-loss-continuity=${video.currentTime >= before}`);
+  await sleep(7200); if (id !== run) return;
+  log.push(`fade-finished=${material.opacity === 0}`);
+  const endedCount = cycle;
+  playback.setPageVisible(false); playback.setPageVisible(true);
+  await sleep(300);
+  log.push(`no-replay-after-end=${playback.state === 'ended' && cycle === endedCount}`);
+  playback.targetLost(); await sleep(300); playback.targetFound();
+  await sleep(1000);
+  log.push(`reinsertion-playing=${playback.state === 'playing' && video.currentTime < 2}`);
+}
+document.querySelector('#run').onclick = () => void automaticCycle();
+setTimeout(automaticCycle, 100);
+window.addEventListener('pagehide', () => { playback.dispose(); renderer.setAnimationLoop(null); renderer.dispose(); });
+</script>

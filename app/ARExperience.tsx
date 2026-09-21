@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AR_CONFIG } from "./ar-config";
+import { ARPlayback } from "./ar-playback.mjs";
+import { stableViewport } from "./ar-camera-utils.mjs";
 
 type Screen = "camera" | "error";
 type TrackingState = "preparing" | "searching" | "found" | "lost" | "error";
@@ -24,10 +26,14 @@ type MindARInstance = {
   addAnchor: (index: number) => Anchor;
   start: () => Promise<void>;
   stop: () => void;
+  resize: () => void;
+  getDiagnostics: () => string;
 };
 type ThreeRuntime = {
   VideoTexture: new (video: HTMLVideoElement) => Disposable & {
     colorSpace: unknown;
+    needsUpdate: boolean;
+    version: number;
   };
   PlaneGeometry: new (width: number, height: number) => Disposable;
   MeshBasicMaterial: new (options: Record<string, unknown>) => VideoMaterial;
@@ -63,11 +69,14 @@ function loadRuntime() {
       if (window.MindARRuntime) resolve(window.MindARRuntime);
       else reject(new Error("ARライブラリを初期化できませんでした"));
     };
-    script.onerror = () =>
+    script.onerror = () => {
+      script.remove();
       reject(new Error("ARライブラリを読み込めませんでした"));
+    };
     document.head.append(script);
   });
 
+  runtimePromise.catch(() => { runtimePromise = null; });
   return runtimePromise;
 }
 
@@ -96,31 +105,21 @@ export function ARExperience() {
   const [cameraReady, setCameraReady] = useState(false);
   const [debugEnabled, setDebugEnabled] = useState(false);
   const [userAgent, setUserAgent] = useState("");
+  const [playbackState, setPlaybackState] = useState("idle");
+  const [diagnostics, setDiagnostics] = useState("");
 
+  const screenRef = useRef<HTMLElement>(null);
+  const sourceRef = useRef<HTMLDivElement>(null);
   const arContainerRef = useRef<HTMLDivElement>(null);
   const mindarRef = useRef<MindARInstance | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const targetVisibleRef = useRef(false);
   const startingRef = useRef(false);
-  const lostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRef = useRef(0);
+  const playbackRef = useRef<ARPlayback | null>(null);
   const fadeFrameRef = useRef<number | null>(null);
   const videoMaterialRef = useRef<VideoMaterial | null>(null);
   const disposablesRef = useRef<Disposable[]>([]);
-
-  const clearLostTimer = useCallback(() => {
-    if (lostTimerRef.current) {
-      clearTimeout(lostTimerRef.current);
-      lostTimerRef.current = null;
-    }
-  }, []);
-
-  const clearPlayRetry = useCallback(() => {
-    if (playRetryTimerRef.current) {
-      clearTimeout(playRetryTimerRef.current);
-      playRetryTimerRef.current = null;
-    }
-  }, []);
 
   const cancelFade = useCallback(() => {
     if (fadeFrameRef.current !== null) {
@@ -151,8 +150,9 @@ export function ARExperience() {
   }, [cancelFade]);
 
   const stopAR = useCallback(() => {
-    clearLostTimer();
-    clearPlayRetry();
+    generationRef.current++;
+    playbackRef.current?.dispose();
+    playbackRef.current = null;
     cancelFade();
     targetVisibleRef.current = false;
 
@@ -160,9 +160,10 @@ export function ARExperience() {
     if (video) {
       video.onended = null;
       video.pause();
-      video.currentTime = 0;
+      try { video.currentTime = 0; } catch { /* Metadata may not have loaded. */ }
       video.removeAttribute("src");
       video.load();
+      video.remove();
     }
     videoRef.current = null;
     videoMaterialRef.current = null;
@@ -181,56 +182,14 @@ export function ARExperience() {
     disposablesRef.current.forEach((item) => item.dispose());
     disposablesRef.current = [];
     arContainerRef.current?.replaceChildren();
-  }, [cancelFade, clearLostTimer, clearPlayRetry]);
-
-  const playFromBeginning = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video) return;
-    clearPlayRetry();
-    cancelFade();
-    if (videoMaterialRef.current) videoMaterialRef.current.opacity = 1;
-    video.muted = AR_CONFIG.video.muted;
-    if (AR_CONFIG.tracking.restartFromBeginning) {
-      try {
-        video.currentTime = 0;
-      } catch {
-        // Metadata may not be available on the first recognition frame.
-      }
-    }
-
-    const attemptPlay = async (attempt: number) => {
-      if (videoRef.current !== video || !targetVisibleRef.current) return;
-
-      if (video.readyState < 2) {
-        if (attempt < 60) {
-          playRetryTimerRef.current = setTimeout(
-            () => void attemptPlay(attempt + 1),
-            250,
-          );
-        }
-        return;
-      }
-
-      try {
-        await video.play();
-      } catch {
-        if (attempt < 60 && targetVisibleRef.current) {
-          playRetryTimerRef.current = setTimeout(
-            () => void attemptPlay(attempt + 1),
-            250,
-          );
-        }
-      }
-    };
-
-    await attemptPlay(0);
-  }, [cancelFade, clearPlayRetry]);
+  }, [cancelFade]);
 
   const startCamera = useCallback(async () => {
     if (startingRef.current) return;
     startingRef.current = true;
     setCameraReady(false);
     stopAR();
+    const generation = generationRef.current;
     setScreen("camera");
     setTracking("preparing");
     setErrorMessage("");
@@ -253,11 +212,13 @@ export function ARExperience() {
           window.requestAnimationFrame(() => resolve()),
         );
       });
+      if (generation !== generationRef.current) return;
 
       const container = arContainerRef.current;
       if (!container) throw new Error("Camera container unavailable");
 
       const runtime = await loadRuntime();
+      if (generation !== generationRef.current) return;
       const mindar = new runtime.MindARThree({
         container,
         imageTargetSrc: AR_CONFIG.targetFile,
@@ -285,10 +246,8 @@ export function ARExperience() {
       video.setAttribute("webkit-playsinline", "");
       video.controls = false;
       video.className = "texture-video";
-      video.onended = fadeOutVideo;
-      // iOS Safari can leave an off-DOM video texture stuck on its first
-      // frame. Keep a clipped 1px source attached while Three.js displays it.
-      container.appendChild(video);
+      // Keep the source mounted separately from the initially hidden camera.
+      sourceRef.current?.appendChild(video);
       video.load();
       videoRef.current = video;
 
@@ -303,7 +262,7 @@ export function ARExperience() {
         side: runtime.THREE.DoubleSide,
         toneMapped: false,
         transparent: true,
-        opacity: 1,
+        opacity: 0,
       });
       videoMaterialRef.current = material;
       const plane = new runtime.THREE.Mesh(geometry, material);
@@ -313,40 +272,59 @@ export function ARExperience() {
         AR_CONFIG.overlay.positionZ,
       );
       disposablesRef.current = [texture, geometry, material];
+      const playback = new ARPlayback(video, {
+        lostDelayMs: AR_CONFIG.tracking.lostDelayMs,
+        onState: (state: string) => {
+          setPlaybackState(state);
+          if (state === "idle" && !targetVisibleRef.current) setTracking("searching");
+        },
+        onReset: () => { cancelFade(); material.opacity = 0; },
+        onFrame: () => { material.opacity = 1; },
+        onEnded: fadeOutVideo,
+      });
+      playbackRef.current = playback;
+      playback.setPageVisible(!document.hidden);
 
       const anchor = mindar.addAnchor(0);
       anchor.group.add(plane);
       anchor.onTargetFound = () => {
-        clearLostTimer();
         targetVisibleRef.current = true;
         setTracking("found");
-        void playFromBeginning();
+        playback.targetFound();
       };
       anchor.onTargetLost = () => {
         targetVisibleRef.current = false;
-        clearPlayRetry();
         setTracking("lost");
-        clearLostTimer();
-        lostTimerRef.current = setTimeout(() => {
-          const currentVideo = videoRef.current;
-          if (!targetVisibleRef.current && currentVideo) {
-            cancelFade();
-            currentVideo.pause();
-            currentVideo.currentTime = 0;
-            if (videoMaterialRef.current) {
-              videoMaterialRef.current.opacity = 1;
-            }
-            setTracking("searching");
-          }
-        }, AR_CONFIG.tracking.lostDelayMs);
+        playback.targetLost();
       };
 
       const { renderer, scene, camera } = mindar;
       // Keep the decoded video and the WebGL canvas in the same sRGB space.
       // This avoids a darker or more saturated result without post-processing.
       renderer.outputColorSpace = runtime.THREE.SRGBColorSpace;
-      renderer.setAnimationLoop(() => renderer.render(scene, camera));
       await mindar.start();
+      if (generation !== generationRef.current) { mindar.stop(); return; }
+      let lastTextureTime = -1;
+      let lastTextureVersion = texture.version;
+      let lastTextureUpdateAt = performance.now();
+      renderer.setAnimationLoop(() => {
+        // Also update on clock advancement if Safari's frame callback stalls.
+        // No canvas readback, extra decoder, color filter, or per-frame React state.
+        const now = performance.now();
+        if (texture.version !== lastTextureVersion) {
+          lastTextureVersion = texture.version;
+          lastTextureTime = video.currentTime;
+          lastTextureUpdateAt = now;
+        } else if (video.readyState >= 2 && video.currentTime !== lastTextureTime && now - lastTextureUpdateAt > 100) {
+          // The normal frame callback already updates the texture. Only fall
+          // back when it stops for >100ms, avoiding duplicate GPU uploads.
+          texture.needsUpdate = true;
+          lastTextureVersion = texture.version;
+          lastTextureTime = video.currentTime;
+          lastTextureUpdateAt = now;
+        }
+        renderer.render(scene, camera);
+      });
       // Keep Safari's temporary native play overlay and its first incorrectly
       // sized camera frame hidden until MindAR has finalized the viewport.
       await new Promise<void>((resolve) => {
@@ -354,9 +332,11 @@ export function ARExperience() {
           window.requestAnimationFrame(() => resolve()),
         );
       });
+      if (generation !== generationRef.current) return;
       setCameraReady(true);
-      setTracking("searching");
+      setTracking(targetVisibleRef.current ? "found" : "searching");
     } catch (error) {
+      if (generation !== generationRef.current) return;
       console.error("[EMOLI AR]", error);
       stopAR();
       setErrorMessage(cameraErrorMessage(error));
@@ -365,14 +345,30 @@ export function ARExperience() {
     } finally {
       startingRef.current = false;
     }
-  }, [cancelFade, clearLostTimer, clearPlayRetry, fadeOutVideo, playFromBeginning, stopAR]);
+  }, [cancelFade, fadeOutVideo, stopAR]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (document.hidden) videoRef.current?.pause();
-      else if (targetVisibleRef.current) videoRef.current?.play().catch(() => {});
+      playbackRef.current?.setPageVisible(!document.hidden);
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
+    let viewport: {width: number; height: number; orientation: string} | null = null;
+    const lockViewport = () => {
+      const screen = screenRef.current;
+      if (!screen) return;
+      const next = stableViewport(viewport, {
+        width: document.documentElement.clientWidth,
+        height: viewport ? window.innerHeight : screen.clientHeight,
+        orientation: window.screen.orientation?.type ?? (window.innerWidth > window.innerHeight ? "landscape" : "portrait"),
+      });
+      if (next === viewport) return;
+      viewport = next;
+      screen.style.width = `${next.width}px`;
+      screen.style.height = `${next.height}px`;
+      mindarRef.current?.resize();
+    };
+    lockViewport();
+    window.addEventListener("resize", lockViewport);
 
     // A zero-delay task survives React Strict Mode's mount check and starts the
     // permission request immediately after the QR destination renders.
@@ -387,9 +383,19 @@ export function ARExperience() {
     return () => {
       window.clearTimeout(startTimer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("resize", lockViewport);
       stopAR();
     };
   }, [startCamera, stopAR]);
+
+  useEffect(() => {
+    if (!debugEnabled) return;
+    const timer = window.setInterval(() => {
+      const snapshot = playbackRef.current?.snapshot();
+      setDiagnostics(`${snapshot ? JSON.stringify(snapshot) : "preparing"}\n${mindarRef.current?.getDiagnostics() ?? ""}`);
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [debugEnabled]);
 
   if (screen === "error") {
     return (
@@ -409,7 +415,8 @@ export function ARExperience() {
   }
 
   return (
-    <main className="camera-screen">
+    <main ref={screenRef} className="camera-screen">
+      <div ref={sourceRef} className="video-source" aria-hidden="true" />
       <div
         ref={arContainerRef}
         className={`ar-container${cameraReady ? " is-ready" : ""}`}
@@ -428,12 +435,25 @@ export function ARExperience() {
         </span>
       </header>
 
+      {tracking === "found" && (playbackState === "blocked" || playbackState === "error") && (
+        <section className="playback-notice" role="status">
+          <p>{playbackState === "blocked"
+            ? "端末が自動再生を制限しています。低電力モードをOFFにして再読み込みするか、下のボタンを一度押してください。"
+            : "動画を読み込めませんでした。通信を確認して再試行してください。"}</p>
+          <button className="retry-button" onClick={() => playbackRef.current?.retryFromGesture()}>
+            {playbackState === "blocked" ? "動画を再生する" : "動画を再読み込み"}
+          </button>
+        </section>
+      )}
+
       <section className="camera-instruction" aria-live="polite">
         <strong>
           {tracking === "preparing"
             ? "カメラの使用を許可してください"
             : tracking === "found"
-              ? "カードを認識しました"
+              ? playbackState === "loading" || playbackState === "buffering"
+                ? "動画を読み込み中"
+                : playbackState === "ended" ? "もう一度見るにはカードを画面外へ" : "カードを認識しました"
               : "写真全体を画面に入れてください"}
         </strong>
         {tracking !== "found" && tracking !== "preparing" && (
@@ -443,10 +463,11 @@ export function ARExperience() {
 
       {debugEnabled && (
         <aside className="debug-panel">
-          <strong>DEBUG</strong>
+          <strong>DEBUG {AR_CONFIG.build}</strong>
           <span>mindar: {tracking}</span>
           <span>target: {tracking === "found" ? "found" : "none"}</span>
-          <span>video: {tracking === "found" ? "playing" : "paused"}</span>
+          <span>video: {playbackState}</span>
+          <pre>{diagnostics}</pre>
           <span>{userAgent}</span>
         </aside>
       )}

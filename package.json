@@ -11,7 +11,8 @@
     "build:pages": "next build",
     "build:sites": "vite build",
     "preview": "wrangler pages dev out --port 3000",
-    "test": "pnpm run build:pages && node --test tests/rendered-html.test.mjs",
+    "test": "pnpm run build:pages && node --test tests/*.test.mjs",
+    "test:unit": "node --test tests/ar-playback.test.mjs tests/ar-camera.test.mjs",
     "build:ar-runtime": "vite build --config tools/vite.runtime.config.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"

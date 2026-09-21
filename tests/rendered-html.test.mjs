@@ -18,11 +18,9 @@ test("exports the camera-first AR screen as the static root page", async () => {
 });
 
 test("ships all AR assets and Cloudflare Pages control files", async () => {
-  const [config, component, styles, packageJson, headers, redirects, target, mind, movie, runtime] =
+  const [config, packageJson, headers, redirects, target, mind, movie, runtime] =
     await Promise.all([
       readFile(new URL("../app/ar-config.ts", import.meta.url), "utf8"),
-      readFile(new URL("../app/ARExperience.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(output("_headers"), "utf8"),
       readFile(output("_redirects"), "utf8"),
@@ -40,24 +38,8 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.match(config, /filterBeta:\s*10/);
   assert.match(config, /missTolerance:\s*12/);
   assert.match(config, /lostDelayMs:\s*250/);
-  assert.match(component, /window\.isSecureContext/);
-  assert.match(component, /const startTimer = window\.setTimeout/);
-  assert.match(component, /void startCamera\(\);/);
-  assert.match(component, /await mindar\.start\(\)/);
-  assert.doesNotMatch(component, /video\.autoplay = true/);
-  assert.match(component, /container\.appendChild\(video\)/);
-  assert.match(component, /video\.className = "texture-video"/);
-  assert.match(component, /video\.readyState < 2/);
-  assert.match(component, /attempt < 60/);
-  assert.match(styles, /\.texture-video/);
-  assert.doesNotMatch(styles, /clip-path:\s*inset/);
-  assert.doesNotMatch(component, /className="sound-control"/);
-  assert.doesNotMatch(component, /タップして再生/);
-  assert.match(component, /className={`ar-container\$\{cameraReady/);
-  assert.match(component, /video\.defaultMuted = AR_CONFIG\.video\.muted/);
-  assert.match(component, /renderer\.outputColorSpace = runtime\.THREE\.SRGBColorSpace/);
-  assert.match(component, /video\.onended = fadeOutVideo/);
-  assert.match(component, /material\.opacity = 1 - progress/);
+  // Media behavior is covered by executable state-machine tests, not source regexes.
+  assert.match(config, /runtimeFile:\s*"\/runtime\/mindar-runtime\.iife\.js\?v=[^"]+"/);
   assert.match(packageJson, /"build:pages":\s*"next build"/);
   assert.match(headers, /Permissions-Policy:\s*camera=\(self\)/);
   assert.match(headers, /Cache-Control:\s*public, max-age=0, must-revalidate/);

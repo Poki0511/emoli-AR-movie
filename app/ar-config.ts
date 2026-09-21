@@ -1,8 +1,9 @@
 export const AR_CONFIG = {
+  build: "20260922-7",
   targetFile: "/assets/target.mind?v=20260922-3",
   videoFile: "/assets/movie.mp4?v=20260922-3",
   posterFile: "/assets/poster.jpg?v=20260922-3",
-  runtimeFile: "/runtime/mindar-runtime.iife.js",
+  runtimeFile: "/runtime/mindar-runtime.iife.js?v=20260922-7",
   video: {
     // Muted playback is required for automatic playback on iPhone Safari and
     // Android Chrome. Sounded playback always requires a user gesture.

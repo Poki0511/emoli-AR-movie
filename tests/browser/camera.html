@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AR synthetic camera integration (local only)</title>
+<style>body{background:#141414;color:#eee;font:14px system-ui}#ar{position:relative;width:390px;height:620px;overflow:hidden}#ar>video{z-index:0!important;max-width:none}#ar>canvas,#ar>div{z-index:1}pre{white-space:pre-wrap}button{padding:12px}</style>
+<h1>Real MindAR + synthetic camera + real video</h1>
+<p>Uses a generated camera stream of target.jpg; never opens your physical camera.</p>
+<button id="hide">Hide card</button> <button id="show">Show card</button> <button id="resize">Repeat unchanged resize × 30</button>
+<div id="ar"></div><pre id="results">Preparing…</pre>
+<pre id="errors"></pre>
+<script>window.addEventListener('error', e => { document.querySelector('#errors').textContent += `${e.message}\n${e.error?.stack}\n`; }); window.addEventListener('unhandledrejection', e => { document.querySelector('#errors').textContent += `${e.reason?.stack ?? e.reason}\n`; });</script>
+<video id="movie" muted playsinline style="width:2px;height:2px;opacity:.001"></video>
+<script src="../../public/runtime/mindar-runtime.iife.js"></script>
+<script type="module">
+import { ARPlayback } from '../../app/ar-playback.mjs';
+const { THREE, MindARThree } = window.MindARRuntime;
+const log = []; let cardVisible = true; let found = 0; let lost = 0; let fadeStart = null;
+const canvas = document.createElement('canvas'); canvas.width = 720; canvas.height = 1280;
+const ctx = canvas.getContext('2d'); const target = new Image(); target.src = '../../public/assets/target.jpg'; await target.decode();
+function draw() { ctx.fillStyle = '#333'; ctx.fillRect(0, 0, 720, 1280); if (cardVisible) ctx.drawImage(target, 90, 270, 540, 728); }
+draw(); const drawing = setInterval(draw, 33);
+// Local fixture only: the runtime still exercises its getUserMedia / metadata / resize path.
+const stream = canvas.captureStream(30);
+navigator.mediaDevices.getUserMedia = async () => stream;
+navigator.mediaDevices.enumerateDevices = async () => [];
+const ar = new MindARThree({ container: document.querySelector('#ar'), imageTargetSrc: '../../public/assets/target.mind', maxTrack: 1, uiLoading: 'no', uiScanning: 'no', uiError: 'no', filterMinCF: .001, filterBeta: 10, warmupTolerance: 5, missTolerance: 12 });
+const video = document.querySelector('#movie'); video.src = '../../public/assets/movie.mp4'; video.muted = video.defaultMuted = true; video.preload = 'auto';
+const texture = new THREE.VideoTexture(video); texture.colorSpace = THREE.SRGBColorSpace;
+const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0, side: THREE.DoubleSide, toneMapped: false });
+const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1.3481), material); plane.position.z = .01;
+const playback = new ARPlayback(video, { onState: s => log.push(s), onReset: () => { material.opacity = 0; fadeStart = null; }, onFrame: () => { material.opacity = 1; }, onEnded: () => { fadeStart = performance.now(); } });
+const anchor = ar.addAnchor(0); anchor.group.add(plane);
+anchor.onTargetFound = () => { found++; playback.targetFound(); };
+anchor.onTargetLost = () => { lost++; playback.targetLost(); };
+document.querySelector('#hide').onclick = () => { cardVisible = false; };
+document.querySelector('#show').onclick = () => { cardVisible = true; };
+document.querySelector('#resize').onclick = () => { for (let n = 0; n < 30; n++) window.dispatchEvent(new Event('resize')); };
+setInterval(() => { document.querySelector('#results').textContent = JSON.stringify({ ...playback.snapshot(), found, lost, opacity: material.opacity, camera: ar.getDiagnostics(), log }, null, 2); }, 200);
+try {
+  await ar.start(); ar.renderer.outputColorSpace = THREE.SRGBColorSpace;
+  let time = -1;
+  ar.renderer.setAnimationLoop(() => {
+    if (video.readyState >= 2 && video.currentTime !== time) { texture.needsUpdate = true; time = video.currentTime; }
+    if (fadeStart !== null) material.opacity = Math.max(0, 1 - (performance.now() - fadeStart) / 1000);
+    ar.renderer.render(ar.scene, ar.camera);
+  });
+} catch (error) { log.push(`${error.name}: ${error.message}`); }
+window.addEventListener('pagehide', () => { clearInterval(drawing); playback.dispose(); ar.stop(); });
+</script>

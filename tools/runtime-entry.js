@@ -1,2 +1,2 @@
-export { MindARThree } from "mind-ar/src/image-target/three.js";
+export { MindARThree } from "./stable-mindar.js";
 export * as THREE from "three";

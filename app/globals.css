@@ -67,15 +67,36 @@ button {
   -webkit-appearance: none;
 }
 
-.ar-container > .texture-video {
-  position: absolute !important;
-  inset: auto 0 0 auto !important;
-  z-index: 2 !important;
-  width: 1px !important;
-  height: 1px !important;
+.video-source {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
   opacity: 0.001;
   pointer-events: none;
 }
+
+.texture-video { width: 2px; height: 2px; }
+.texture-video::-webkit-media-controls,
+.texture-video::-webkit-media-controls-start-playback-button { display: none !important; }
+
+.playback-notice {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: max(96px, calc(env(safe-area-inset-bottom) + 80px));
+  transform: translateX(-50%);
+  width: min(340px, calc(100% - 32px));
+  padding: 16px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 82%);
+  text-align: center;
+  font-size: 13px;
+}
+.playback-notice p { margin: 0 0 12px; line-height: 1.6; }
+.debug-panel pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .ar-container > canvas,
 .ar-container > div {

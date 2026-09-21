@@ -1,7 +1,7 @@
 export const AR_CONFIG = {
-  targetFile: "/assets/target.mind",
-  videoFile: "/assets/movie.mp4",
-  posterFile: "/assets/poster.jpg",
+  targetFile: "/assets/target.mind?v=20260921-2",
+  videoFile: "/assets/movie.mp4?v=20260921-2",
+  posterFile: "/assets/poster.jpg?v=20260921-2",
   runtimeFile: "/runtime/mindar-runtime.iife.js",
   video: {
     muted: true,

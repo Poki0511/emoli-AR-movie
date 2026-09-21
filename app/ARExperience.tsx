@@ -205,10 +205,26 @@ export function ARExperience() {
       video.src = AR_CONFIG.videoFile;
       video.poster = AR_CONFIG.posterFile;
       video.preload = "auto";
+      video.autoplay = true;
       video.loop = AR_CONFIG.video.loop;
       video.muted = AR_CONFIG.video.muted;
+      video.defaultMuted = AR_CONFIG.video.muted;
       video.playsInline = AR_CONFIG.video.playsInline;
+      video.setAttribute("autoplay", "");
+      video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+      Object.assign(video.style, {
+        position: "absolute",
+        inset: "0 auto auto 0",
+        width: "1px",
+        height: "1px",
+        opacity: "0.001",
+        pointerEvents: "none",
+      });
+      // iOS Safari advances video textures more reliably when the source
+      // video remains attached to the document instead of living off-DOM.
+      container.appendChild(video);
       videoRef.current = video;
 
       const texture = new runtime.THREE.VideoTexture(video);

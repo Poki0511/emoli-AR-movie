@@ -31,8 +31,8 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
       stat(output("runtime/mindar-runtime.iife.js")),
     ]);
 
-  assert.match(config, /targetFile:\s*"\/assets\/target\.mind"/);
-  assert.match(config, /videoFile:\s*"\/assets\/movie\.mp4"/);
+  assert.match(config, /targetFile:\s*"\/assets\/target\.mind\?v=[^"]+"/);
+  assert.match(config, /videoFile:\s*"\/assets\/movie\.mp4\?v=[^"]+"/);
   assert.match(config, /filterBeta:\s*0\.01/);
   assert.match(config, /missTolerance:\s*12/);
   assert.match(config, /lostDelayMs:\s*250/);
@@ -40,8 +40,11 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.match(component, /const startTimer = window\.setTimeout/);
   assert.match(component, /void startCamera\(\);/);
   assert.match(component, /await mindar\.start\(\)/);
+  assert.match(component, /video\.autoplay = true/);
+  assert.match(component, /container\.appendChild\(video\)/);
   assert.match(packageJson, /"build:pages":\s*"next build"/);
   assert.match(headers, /Permissions-Policy:\s*camera=\(self\)/);
+  assert.match(headers, /Cache-Control:\s*public, max-age=0, must-revalidate/);
   assert.match(redirects, /\/\*\s+\/index\.html\s+200/);
   assert.ok(target.size > 0);
   assert.ok(mind.size > 0);

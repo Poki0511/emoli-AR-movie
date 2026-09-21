@@ -254,7 +254,11 @@ export function ARExperience() {
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
       video.controls = false;
+      video.className = "texture-video";
       video.onended = fadeOutVideo;
+      // iOS Safari can leave an off-DOM video texture stuck on its first
+      // frame. Keep a clipped 1px source attached while Three.js displays it.
+      container.appendChild(video);
       video.load();
       videoRef.current = video;
 

@@ -36,7 +36,7 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.match(config, /muted:\s*true/);
   assert.match(config, /loop:\s*false/);
   assert.match(config, /fadeOutMs:\s*1000/);
-  assert.match(config, /filterBeta:\s*10/);
+  assert.match(config, /filterBeta:\s*1/);
   assert.match(config, /missTolerance:\s*12/);
   assert.match(config, /lostDelayMs:\s*250/);
   assert.match(component, /window\.isSecureContext/);
@@ -44,7 +44,8 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.match(component, /void startCamera\(\);/);
   assert.match(component, /await mindar\.start\(\)/);
   assert.doesNotMatch(component, /video\.autoplay = true/);
-  assert.doesNotMatch(component, /container\.appendChild\(video\)/);
+  assert.match(component, /container\.appendChild\(video\)/);
+  assert.match(component, /video\.className = "texture-video"/);
   assert.doesNotMatch(component, /className="sound-control"/);
   assert.doesNotMatch(component, /タップして再生/);
   assert.match(component, /className={`ar-container\$\{cameraReady/);

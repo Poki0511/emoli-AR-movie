@@ -1,7 +1,7 @@
 export const AR_CONFIG = {
-  targetFile: "/assets/target.mind?v=20260922-1",
-  videoFile: "/assets/movie.mp4?v=20260922-1",
-  posterFile: "/assets/poster.jpg?v=20260922-1",
+  targetFile: "/assets/target.mind?v=20260922-2",
+  videoFile: "/assets/movie.mp4?v=20260922-2",
+  posterFile: "/assets/poster.jpg?v=20260922-2",
   runtimeFile: "/runtime/mindar-runtime.iife.js",
   video: {
     // Muted playback is required for automatic playback on iPhone Safari and
@@ -21,10 +21,10 @@ export const AR_CONFIG = {
     positionZ: 0.01,
   },
   tracking: {
-    // Balance stability and responsiveness: this is far more responsive than
-    // the old 0.01 value while suppressing the visible jitter of 100.
+    // Stability-first adaptive tracking. This remains 100 times more
+    // responsive than the old 0.01 value, but rejects brief pose spikes.
     filterMinCF: 0.001,
-    filterBeta: 10,
+    filterBeta: 1,
     warmupTolerance: 5,
     missTolerance: 12,
     lostDelayMs: 250,

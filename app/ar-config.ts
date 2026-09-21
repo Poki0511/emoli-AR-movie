@@ -1,10 +1,12 @@
 export const AR_CONFIG = {
-  targetFile: "/assets/target.mind?v=20260921-3",
-  videoFile: "/assets/movie.mp4?v=20260921-3",
-  posterFile: "/assets/poster.jpg?v=20260921-3",
+  targetFile: "/assets/target.mind?v=20260922-1",
+  videoFile: "/assets/movie.mp4?v=20260922-1",
+  posterFile: "/assets/poster.jpg?v=20260922-1",
   runtimeFile: "/runtime/mindar-runtime.iife.js",
   video: {
-    muted: false,
+    // Muted playback is required for automatic playback on iPhone Safari and
+    // Android Chrome. Sounded playback always requires a user gesture.
+    muted: true,
     loop: false,
     playsInline: true,
     fadeOutMs: 1000,
@@ -19,10 +21,10 @@ export const AR_CONFIG = {
     positionZ: 0.01,
   },
   tracking: {
-    // A responsive One Euro filter keeps the movie attached to a moving card
-    // without the heavy delay caused by the previous ultra-low beta value.
+    // Balance stability and responsiveness: this is far more responsive than
+    // the old 0.01 value while suppressing the visible jitter of 100.
     filterMinCF: 0.001,
-    filterBeta: 100,
+    filterBeta: 10,
     warmupTolerance: 5,
     missTolerance: 12,
     lostDelayMs: 250,

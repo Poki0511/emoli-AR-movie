@@ -47,11 +47,25 @@ button {
   height: 100%;
   overflow: hidden;
   background: #000;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.ar-container.is-ready {
+  opacity: 1;
+  visibility: visible;
 }
 
 .ar-container > video {
   z-index: 0 !important;
   max-width: none !important;
+}
+
+.ar-container > video::-webkit-media-controls,
+.ar-container > video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none;
 }
 
 .ar-container > canvas,
@@ -130,7 +144,6 @@ button {
   font-size: 10px;
 }
 
-.sound-hint,
 .retry-button {
   border: 1px solid rgb(255 255 255 / 18%);
   border-radius: 999px;
@@ -139,18 +152,6 @@ button {
   cursor: pointer;
   font-weight: 700;
   backdrop-filter: blur(10px);
-}
-
-.sound-hint {
-  position: absolute;
-  z-index: 7;
-  right: 50%;
-  bottom: max(116px, calc(env(safe-area-inset-bottom) + 108px));
-  min-height: 48px;
-  padding: 0 22px;
-  background: rgb(0 0 0 / 72%);
-  font-size: 13px;
-  transform: translateX(50%);
 }
 
 .debug-panel {

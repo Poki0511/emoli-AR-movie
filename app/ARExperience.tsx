@@ -17,6 +17,7 @@ type MindARInstance = {
   renderer: {
     render: (scene: unknown, camera: unknown) => void;
     setAnimationLoop: (callback: (() => void) | null) => void;
+    outputColorSpace: unknown;
   };
   scene: unknown;
   camera: unknown;
@@ -92,7 +93,7 @@ export function ARExperience() {
   const [screen, setScreen] = useState<Screen>("camera");
   const [tracking, setTracking] = useState<TrackingState>("preparing");
   const [errorMessage, setErrorMessage] = useState("");
-  const [soundHint, setSoundHint] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [debugEnabled, setDebugEnabled] = useState(false);
   const [userAgent, setUserAgent] = useState("");
 
@@ -182,17 +183,23 @@ export function ARExperience() {
     video.muted = AR_CONFIG.video.muted;
     try {
       await video.play();
-      setSoundHint(false);
     } catch {
-      // Mobile browsers normally require one page tap before playing audio.
-      // Keep sound enabled and ask for that gesture instead of silently muting.
-      setSoundHint(true);
+      // If target recognition wins the race against media buffering, retry as
+      // soon as the file is playable without asking the visitor to tap.
+      video.addEventListener(
+        "canplay",
+        () => {
+          if (targetVisibleRef.current) void video.play().catch(() => {});
+        },
+        { once: true },
+      );
     }
   }, [cancelFade]);
 
   const startCamera = useCallback(async () => {
     if (startingRef.current) return;
     startingRef.current = true;
+    setCameraReady(false);
     stopAR();
     setScreen("camera");
     setTracking("preparing");
@@ -241,7 +248,9 @@ export function ARExperience() {
       video.preload = "auto";
       video.loop = AR_CONFIG.video.loop;
       video.muted = AR_CONFIG.video.muted;
+      video.defaultMuted = AR_CONFIG.video.muted;
       video.playsInline = AR_CONFIG.video.playsInline;
+      video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
       video.controls = false;
@@ -292,15 +301,25 @@ export function ARExperience() {
             if (videoMaterialRef.current) {
               videoMaterialRef.current.opacity = 1;
             }
-            setSoundHint(false);
             setTracking("searching");
           }
         }, AR_CONFIG.tracking.lostDelayMs);
       };
 
       const { renderer, scene, camera } = mindar;
+      // Keep the decoded video and the WebGL canvas in the same sRGB space.
+      // This avoids a darker or more saturated result without post-processing.
+      renderer.outputColorSpace = runtime.THREE.SRGBColorSpace;
       renderer.setAnimationLoop(() => renderer.render(scene, camera));
       await mindar.start();
+      // Keep Safari's temporary native play overlay and its first incorrectly
+      // sized camera frame hidden until MindAR has finalized the viewport.
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() =>
+          window.requestAnimationFrame(() => resolve()),
+        );
+      });
+      setCameraReady(true);
       setTracking("searching");
     } catch (error) {
       console.error("[EMOLI AR]", error);
@@ -356,7 +375,10 @@ export function ARExperience() {
 
   return (
     <main className="camera-screen">
-      <div ref={arContainerRef} className="ar-container" />
+      <div
+        ref={arContainerRef}
+        className={`ar-container${cameraReady ? " is-ready" : ""}`}
+      />
 
       <header className="camera-header">
         <span className={`status-pill status-${tracking}`} role="status">
@@ -383,12 +405,6 @@ export function ARExperience() {
           <span>反射を避け、ピントが合う距離で映してください</span>
         )}
       </section>
-
-      {soundHint && (
-        <button className="sound-hint" onClick={playFromBeginning}>
-          タップして再生
-        </button>
-      )}
 
       {debugEnabled && (
         <aside className="debug-panel">

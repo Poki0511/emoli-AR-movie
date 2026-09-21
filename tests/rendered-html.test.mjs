@@ -33,10 +33,10 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
 
   assert.match(config, /targetFile:\s*"\/assets\/target\.mind\?v=[^"]+"/);
   assert.match(config, /videoFile:\s*"\/assets\/movie\.mp4\?v=[^"]+"/);
-  assert.match(config, /muted:\s*false/);
+  assert.match(config, /muted:\s*true/);
   assert.match(config, /loop:\s*false/);
   assert.match(config, /fadeOutMs:\s*1000/);
-  assert.match(config, /filterBeta:\s*100/);
+  assert.match(config, /filterBeta:\s*10/);
   assert.match(config, /missTolerance:\s*12/);
   assert.match(config, /lostDelayMs:\s*250/);
   assert.match(component, /window\.isSecureContext/);
@@ -46,7 +46,10 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.doesNotMatch(component, /video\.autoplay = true/);
   assert.doesNotMatch(component, /container\.appendChild\(video\)/);
   assert.doesNotMatch(component, /className="sound-control"/);
-  assert.match(component, /タップして再生/);
+  assert.doesNotMatch(component, /タップして再生/);
+  assert.match(component, /className={`ar-container\$\{cameraReady/);
+  assert.match(component, /video\.defaultMuted = AR_CONFIG\.video\.muted/);
+  assert.match(component, /renderer\.outputColorSpace = runtime\.THREE\.SRGBColorSpace/);
   assert.match(component, /video\.onended = fadeOutVideo/);
   assert.match(component, /material\.opacity = 1 - progress/);
   assert.match(packageJson, /"build:pages":\s*"next build"/);

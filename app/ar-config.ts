@@ -1,5 +1,5 @@
 export const AR_CONFIG = {
-  build: "20260922-8-responsive",
+  build: "20260922-9-copy",
   targetFile: "/assets/target.mind?v=20260922-3",
   videoFile: "/assets/movie.mp4?v=20260922-3",
   posterFile: "/assets/poster.jpg?v=20260922-3",
@@ -22,7 +22,7 @@ export const AR_CONFIG = {
     positionZ: 0.01,
   },
   tracking: {
-    // Experimental high responsiveness, not a higher recognition-accuracy limit.
+    // User-approved high responsiveness; preserve for subsequent changes.
     // Restore A by changing only filterBeta from 100 back to 10.
     filterMinCF: 0.001,
     filterBeta: 100,

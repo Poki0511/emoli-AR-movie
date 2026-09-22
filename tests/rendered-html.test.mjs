@@ -1,8 +1,18 @@
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
 
 const output = (path) => new URL(`../out/${path}`, import.meta.url);
+
+test("published UI copy uses images and a concise low-power instruction", async () => {
+  const files = await readdir(output("_next/static/chunks/"));
+  const scripts = (await Promise.all(files.filter(file => file.endsWith(".js"))
+    .map(file => readFile(output(`_next/static/chunks/${file}`), "utf8")))).join("\n");
+  for (const message of ["画像を映してください", "画像全体を画面に入れてください", "画像を認識しました", "もう一度見るには画像を画面外へ", "低電力モードの場合は、下のボタンを押して再生してください。"]) {
+    assert.ok(scripts.includes(message), `Missing UI copy: ${message}`);
+  }
+  assert.doesNotMatch(scripts, /チェキ|カードを認識しました|カードを画面外へ|端末が自動再生を制限しています/);
+});
 
 test("exports the camera-first AR screen as the static root page", async () => {
   const html = await readFile(output("index.html"), "utf8");

@@ -431,14 +431,14 @@ export function ARExperience() {
               ? "認識中"
               : tracking === "lost"
                 ? "見失いました"
-                : "チェキを映してください"}
+                : "画像を映してください"}
         </span>
       </header>
 
       {tracking === "found" && (playbackState === "blocked" || playbackState === "error") && (
         <section className="playback-notice" role="status">
           <p>{playbackState === "blocked"
-            ? "端末が自動再生を制限しています。低電力モードをOFFにして再読み込みするか、下のボタンを一度押してください。"
+            ? "低電力モードの場合は、下のボタンを押して再生してください。"
             : "動画を読み込めませんでした。通信を確認して再試行してください。"}</p>
           <button className="retry-button" onClick={() => playbackRef.current?.retryFromGesture()}>
             {playbackState === "blocked" ? "動画を再生する" : "動画を再読み込み"}
@@ -453,8 +453,8 @@ export function ARExperience() {
             : tracking === "found"
               ? playbackState === "loading" || playbackState === "buffering"
                 ? "動画を読み込み中"
-                : playbackState === "ended" ? "もう一度見るにはカードを画面外へ" : "カードを認識しました"
-              : "写真全体を画面に入れてください"}
+                : playbackState === "ended" ? "もう一度見るには画像を画面外へ" : "画像を認識しました"
+              : "画像全体を画面に入れてください"}
         </strong>
         {tracking !== "found" && tracking !== "preparing" && (
           <span>反射を避け、ピントが合う距離で映してください</span>

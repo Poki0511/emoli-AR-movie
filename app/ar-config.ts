@@ -1,5 +1,5 @@
 export const AR_CONFIG = {
-  build: "20260922-7",
+  build: "20260922-8-responsive",
   targetFile: "/assets/target.mind?v=20260922-3",
   videoFile: "/assets/movie.mp4?v=20260922-3",
   posterFile: "/assets/poster.jpg?v=20260922-3",
@@ -22,10 +22,10 @@ export const AR_CONFIG = {
     positionZ: 0.01,
   },
   tracking: {
-    // Balanced tracking: smoother than the responsive 100 setting without
-    // returning to the heavy delay of the old 0.01 setting.
+    // Experimental high responsiveness, not a higher recognition-accuracy limit.
+    // Restore A by changing only filterBeta from 100 back to 10.
     filterMinCF: 0.001,
-    filterBeta: 10,
+    filterBeta: 100,
     warmupTolerance: 5,
     missTolerance: 12,
     lostDelayMs: 250,

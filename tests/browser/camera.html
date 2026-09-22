@@ -22,7 +22,7 @@ draw(); const drawing = setInterval(draw, 33);
 const stream = canvas.captureStream(30);
 navigator.mediaDevices.getUserMedia = async () => stream;
 navigator.mediaDevices.enumerateDevices = async () => [];
-const ar = new MindARThree({ container: document.querySelector('#ar'), imageTargetSrc: '../../public/assets/target.mind', maxTrack: 1, uiLoading: 'no', uiScanning: 'no', uiError: 'no', filterMinCF: .001, filterBeta: 10, warmupTolerance: 5, missTolerance: 12 });
+const ar = new MindARThree({ container: document.querySelector('#ar'), imageTargetSrc: '../../public/assets/target.mind', maxTrack: 1, uiLoading: 'no', uiScanning: 'no', uiError: 'no', filterMinCF: .001, filterBeta: 100, warmupTolerance: 5, missTolerance: 12 });
 const video = document.querySelector('#movie'); video.src = '../../public/assets/movie.mp4'; video.muted = video.defaultMuted = true; video.preload = 'auto';
 const texture = new THREE.VideoTexture(video); texture.colorSpace = THREE.SRGBColorSpace;
 const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0, side: THREE.DoubleSide, toneMapped: false });

@@ -35,7 +35,7 @@ test("ships all AR assets and Cloudflare Pages control files", async () => {
   assert.match(config, /muted:\s*true/);
   assert.match(config, /loop:\s*false/);
   assert.match(config, /fadeOutMs:\s*1000/);
-  assert.match(config, /filterBeta:\s*10/);
+  assert.match(config, /filterBeta:\s*100\s*,/);
   assert.match(config, /missTolerance:\s*12/);
   assert.match(config, /lostDelayMs:\s*250/);
   // Media behavior is covered by executable state-machine tests, not source regexes.
